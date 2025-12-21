@@ -7,3 +7,6 @@ dist
 public
 .wrangler
 .dev.vars
+.claude
+src/lexicons
+

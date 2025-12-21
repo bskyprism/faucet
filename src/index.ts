@@ -1,83 +1,73 @@
-import { html } from 'htm/preact'
-import { FunctionComponent, render } from 'preact'
-import {
-    Primary as ButtonOutlinePrimary,
-    ButtonOutline
-} from '@nichoth/components/htm/button-outline'
-import { createDebug } from '@substrate-system/debug'
-import ky from 'ky'
-import { State } from './state.js'
-import Router from './routes/index.js'
-import '@nichoth/components/button-outline.css'
-import './style.css'
+import { Hono } from 'hono'
+import { serve } from '@hono/node-server'
+import { readFileSync } from 'node:fs'
+import { parseAdminAuthHeader } from '@atproto/tap'
+import Database from 'better-sqlite3'
 
-const router = Router()
-const state = State()
-const debug = createDebug()
+const app = new Hono()
+const dbPath = process.env.TAP_DATABASE_PATH || '/data/tap.db'
+const db = new Database(dbPath, { readonly: true })
 
-if (import.meta.env.DEV || import.meta.env.MODE === 'staging') {
-    // @ts-expect-error DEV env
-    window.state = state
-}
+// Root page - serve ASCII art file
+app.get('/', (c) => {
+    const ascii = readFileSync('/app/ascii2.txt', 'utf-8')
+    return c.text(ascii)
+})
 
-// example of calling our API
-const json = await ky.get('/api/helloworld').json()
-
-export const Example:FunctionComponent = function Example () {
-    debug('rendering example...')
-    const match = router.match(state.route.value)
-    const ChildNode = match.action(match, state.route)
-
-    if (!match) {
-        return html`<div class="404">
-            <h1>404</h1>
-        </div>`
+// Sidecar endpoint - list tracked repos (requires authentication)
+app.get('/repos/:cursor?', (c) => {
+    const authHeader = c.req.header('Authorization')
+    if (!authHeader) {
+        return c.json({ error: 'Unauthorized' }, 401)
     }
 
-    function plus (ev) {
-        ev.preventDefault()
-        State.Increase(state)
+    const password = parseAdminAuthHeader(authHeader)
+    if (password !== process.env.TAP_ADMIN_PASSWORD) {
+        return c.json({ error: 'Forbidden' }, 403)
     }
 
-    function minus (ev) {
-        ev.preventDefault()
-        State.Decrease(state)
+    const cursor = c.req.param('cursor')
+    const limit = 100
+
+    let rows:{ did:string }[]
+    if (cursor) {
+        rows = db.prepare('SELECT did FROM repos WHERE did > ? ' +
+            'ORDER BY did LIMIT ?').all(cursor, limit) as { did:string }[]
+    } else {
+        rows = db.prepare('SELECT did FROM repos ' +
+            'ORDER BY did LIMIT ?').all(limit) as { did:string }[]
     }
 
-    return html`<div>
-        <h1>example</h1>
+    const dids = rows.map(r => r.did)
+    const nextCursor = rows.length === limit ? dids[dids.length - 1] : null
 
-        <h2>the API response</h2>
-        <pre>
-            ${JSON.stringify(json, null, 2)}
-        </pre>
+    return c.json({ dids, cursor: nextCursor })
+})
 
-        <h2>routes</h2>
-        <ul>
-            <li><a href="/aaa">aaa</a></li>
-            <li><a href="/bbb">bbb</a></li>
-            <li><a href="/ccc">ccc</a></li>
-        </ul>
+// Proxy everything else to Tap
+app.all('*', async (c) => {
+    const url = new URL(c.req.url)
+    url.host = 'localhost:2480'
+    url.protocol = 'http:'
 
-        <h2>counter</h2>
-        <div>
-            <div>count: ${state.count.value}</div>
-            <ul class="count-controls">
-                <li>
-                    <${ButtonOutlinePrimary} onClick=${plus}>
-                        plus
-                    </${ButtonOutline}>
-                </li>
-                <li>
-                    <${ButtonOutline} onClick=${minus}>
-                        minus
-                    </${ButtonOutline}>
-                </li>
-            </ul>
-        </div>
+    const headers = new Headers(c.req.raw.headers)
+    headers.delete('host')
 
-        <${ChildNode} />
-    </div>`
-}
+    const response = await fetch(url.toString(), {
+        method: c.req.method,
+        headers,
+        body: c.req.method !== 'GET' && c.req.method !== 'HEAD' ?
+            c.req.raw.body :
+            undefined,
+        duplex: 'half',
+    } as RequestInit)
 
-render(html`<${Example} />`, document.getElementById('root')!)
+    return new Response(response.body, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: response.headers,
+    })
+})
+
+serve({ fetch: app.fetch, port: 8080 })
+console.log('Gateway listening on :8080')

@@ -1,0 +1,39 @@
+# fly.toml app configuration file generated for drerings
+# on 2025-12-23T15:25:43-08:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to
+# use this file.
+#
+
+app = 'my-app'
+primary_region = 'lax'
+
+[build]
+
+[env]
+  TAP_BIND = "0.0.0.0:2480"
+  TAP_WEBHOOK_URL = "https://my-app.com/webhooks/atproto"
+  TAP_RELAY_URL = "https://bsky.network"
+  TAP_DATABASE_URL = "sqlite:///data/tap.db"
+  TAP_LOG_LEVEL = "error"
+
+[mounts]
+  source = "tap_data"
+  destination = "/data"
+
+# Gateway (sidecar) handles all HTTP traffic
+# - /repos served directly
+# - Everything else proxied to Tap on :2480
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'off'  # Never stop - must stay running to listen to firehose
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 1024
