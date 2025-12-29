@@ -1,21 +1,33 @@
 # Tap + fly.io
 
-This the [Tap server](https://docs.bsky.app/blog/introducing-tap).
-Tap is a sync server made by Bluesky.
+This a [Tap server](https://docs.bsky.app/blog/introducing-tap) &mdash; the
+sync server made by Bluesky &mdash; plus a Node JS server that adds a query
+to return all followed repos.
 
 > Tap is the all-in-one tool for synchronizing subsets of the Atmosphere
 
 Tap requires a password for all operations, read or write.
 The caller (e.g. a browser) must submit the password with the request.
 
+<details><summary><h2>Contents</h2></summary>
+<!-- toc -->
+</details>
+
+## Node
+
+This adds a Node JS server in addition to Tap. The Node server provides
+an endpoint to list all repos that Tap is following, and also serves
+some ascii art at the root path.
+
+
 ## Architecture
 
-This fly machine hosts both a tap server and a Node JS process. The Node
-process gives us an endpoint to query the DB for a list of all followed repos.
+This machine hosts both a tap server and a Node JS process.
+
 
 ```
 ┌─────────────────────────────────────────┐
-│          Fly.io (drerings)              │
+│          Fly.io (example.app)           │
 │  ┌────────────────────────────────────┐ │
 │  │         Single Container           │ │
 │  │  ┌────────────┐  ┌──────────────┐  │ │
@@ -37,6 +49,7 @@ process gives us an endpoint to query the DB for a list of all followed repos.
 Otherwise, the HTTP API is
 [described here](https://github.com/bluesky-social/indigo/tree/main/cmd/tap#http-api).
 
+
 ## ASCII Art
 
 This serves an ascii art file at the root path. This is setup here in
@@ -50,10 +63,3 @@ RUN npm install
 COPY sidecar/ ./
 COPY ascii2.txt ./
 ```
-
-## DNS
-
-This site is hosted by [fly.io](https://fly.io/) at
-[drerings.fly.dev](https://drerings.fly.dev/).
-
-It is also exposed at [tap.drerings.app](https://tap.drerings.app/).

@@ -1,62 +1,31 @@
-# Tap + fly.io
+# faucet
 
-This a [Tap server](https://docs.bsky.app/blog/introducing-tap) &mdash; the
-sync server made by Bluesky &mdash; plus a Node JS server that adds a query
-to return all followed repos.
+A template for a [Tap server](https://docs.bsky.app/blog/introducing-tap)
+on [fly.io](https://fly.io/).
 
-> Tap is the all-in-one tool for synchronizing subsets of the Atmosphere
+## How To
 
-Tap requires a password for all operations, read or write.
-The caller (e.g. a browser) must submit the password with the request.
+1. Use the template button in the Github UI
+2. `mv README.example.md README.md`
+3. `touch .env` and add a `TAP_ADMIN_PASSWORD`
+4. Edit the values in `fly.toml`
+5. `fly launch`
 
+The `TAP_ADMIN_PASSWORD` should be
+[sent with any requests](https://github.com/bluesky-social/indigo/tree/main/cmd/tap#authentication).
+The `@atproto/tap` package exposes a function to parse the header:
 
-## Node
-
-This adds a Node JS server in addition to Tap. The Node server provides
-an endpoint to list all repos that Tap is following, and also serves
-some ascii art at the root path.
-
-
-## Architecture
-
-This machine hosts both a tap server and a Node JS process.
-
-
-```
-┌─────────────────────────────────────────┐
-│          Fly.io (example.app)           │
-│  ┌────────────────────────────────────┐ │
-│  │         Single Container           │ │
-│  │  ┌────────────┐  ┌──────────────┐  │ │
-│  │  │    Tap     │  │   Sidecar    │  │ │
-│  │  │  :2480     │  │   :8081      │  │ │
-│  │  └─────┬──────┘  └──────┬───────┘  │ │
-│  │        │                │          │ │
-│  │        └───────┬────────┘          │ │
-│  │                │                   │ │
-│  │         ┌──────▼──────┐            │ │
-│  │         │ /data/tap.db│            │ │
-│  │         └─────────────┘            │ │
-│  │                                    │ │
-│  │    supervisord (process manager)   │ │
-│  └────────────────────────────────────┘ │
-└─────────────────────────────────────────┘
+```ts
+import { parseAdminAuthHeader } from '@atproto/tap'
+const authHeader = myRequest.header('Authorization')
+const password = parseAdminAuthHeader(authHeader)
+if (password !== myAdminPassword) {
+    return c.json({ error: 'Forbidden' }, 403)
+}
 ```
 
-Otherwise, the HTTP API is
-[described here](https://github.com/bluesky-social/indigo/tree/main/cmd/tap#http-api).
+## Generate a Random Secret
 
-
-## ASCII Art
-
-This serves an ascii art file at the root path. This is setup here in
-the `Dockerfile`:
-
-```dockerfile
-# Setup sidecar
-WORKDIR /app
-COPY sidecar/package*.json ./
-RUN npm install
-COPY sidecar/ ./
-COPY ascii2.txt ./
+```sh
+openssl rand -base64 32
 ```

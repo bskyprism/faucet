@@ -3,8 +3,11 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "start": "tsx src/index.ts",
+    "build": "esbuild src/index.ts --bundle --platform=node --format=esm --outfile=dist/index.js --packages=external",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
     "lint": "eslint \"./**/*.ts\"",
+    "toc": "markdown-toc --maxdepth 3 -i README.md",
     "test": "esbuild test/index.ts --bundle --platform=node --format=esm --packages=external | node --input-type=module"
   },
   "dependencies": {

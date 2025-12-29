@@ -5,9 +5,9 @@ import { parseAdminAuthHeader } from '@atproto/tap'
 import Database from 'better-sqlite3'
 
 interface AppDeps {
-    db: Database.Database
-    adminPassword: string
-    asciiPath?: string
+    db:Database.Database
+    adminPassword:string
+    asciiPath?:string
 }
 
 export function createApp(deps:AppDeps) {
