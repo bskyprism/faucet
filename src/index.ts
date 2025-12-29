@@ -4,70 +4,91 @@ import { readFileSync } from 'node:fs'
 import { parseAdminAuthHeader } from '@atproto/tap'
 import Database from 'better-sqlite3'
 
-const app = new Hono()
-const dbPath = process.env.TAP_DATABASE_PATH || '/data/tap.db'
-const db = new Database(dbPath, { readonly: true })
+interface AppDeps {
+    db: Database.Database
+    adminPassword: string
+    asciiPath?: string
+}
 
-// Root page - serve ASCII art file
-app.get('/', (c) => {
-    const ascii = readFileSync('/app/ascii2.txt', 'utf-8')
-    return c.text(ascii)
-})
+export function createApp(deps:AppDeps) {
+    const { db, adminPassword, asciiPath } = deps
+    const app = new Hono()
 
-// Sidecar endpoint - list tracked repos (requires authentication)
-app.get('/repos/:cursor?', (c) => {
-    const authHeader = c.req.header('Authorization')
-    if (!authHeader) {
-        return c.json({ error: 'Unauthorized' }, 401)
+    // Root page - serve ASCII art file
+    if (asciiPath) {
+        app.get('/', (c) => {
+            const ascii = readFileSync(asciiPath, 'utf-8')
+            return c.text(ascii)
+        })
     }
 
-    const password = parseAdminAuthHeader(authHeader)
-    if (password !== process.env.TAP_ADMIN_PASSWORD) {
-        return c.json({ error: 'Forbidden' }, 403)
-    }
+    // Sidecar endpoint - list tracked repos (requires authentication)
+    app.get('/repos/:cursor?', (c) => {
+        const authHeader = c.req.header('Authorization')
+        if (!authHeader) {
+            return c.json({ error: 'Unauthorized' }, 401)
+        }
 
-    const cursor = c.req.param('cursor')
-    const limit = 100
+        const password = parseAdminAuthHeader(authHeader)
+        if (password !== adminPassword) {
+            return c.json({ error: 'Forbidden' }, 403)
+        }
 
-    let rows:{ did:string }[]
-    if (cursor) {
-        rows = db.prepare('SELECT did FROM repos WHERE did > ? ' +
-            'ORDER BY did LIMIT ?').all(cursor, limit) as { did:string }[]
-    } else {
-        rows = db.prepare('SELECT did FROM repos ' +
-            'ORDER BY did LIMIT ?').all(limit) as { did:string }[]
-    }
+        const cursor = c.req.param('cursor')
+        const limit = 100
 
-    const dids = rows.map(r => r.did)
-    const nextCursor = rows.length === limit ? dids[dids.length - 1] : null
+        let rows: { did: string }[]
+        if (cursor) {
+            rows = db.prepare('SELECT did FROM repos WHERE did > ? ' +
+                'ORDER BY did LIMIT ?').all(cursor, limit) as { did: string }[]
+        } else {
+            rows = db.prepare('SELECT did FROM repos ' +
+                'ORDER BY did LIMIT ?').all(limit) as { did: string }[]
+        }
 
-    return c.json({ dids, cursor: nextCursor })
-})
+        const dids = rows.map(r => r.did)
+        const nextCursor = rows.length === limit ? dids[dids.length - 1] : null
 
-// Proxy everything else to Tap
-app.all('*', async (c) => {
-    const url = new URL(c.req.url)
-    url.host = 'localhost:2480'
-    url.protocol = 'http:'
-
-    const headers = new Headers(c.req.raw.headers)
-    headers.delete('host')
-
-    const response = await fetch(url.toString(), {
-        method: c.req.method,
-        headers,
-        body: c.req.method !== 'GET' && c.req.method !== 'HEAD' ?
-            c.req.raw.body :
-            undefined,
-        duplex: 'half',
-    } as RequestInit)
-
-    return new Response(response.body, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers,
+        return c.json({ dids, cursor: nextCursor })
     })
-})
 
-serve({ fetch: app.fetch, port: 8080 })
-console.log('Gateway listening on :8080')
+    // Proxy everything else to Tap
+    app.all('*', async (c) => {
+        const url = new URL(c.req.url)
+        url.host = 'localhost:2480'
+        url.protocol = 'http:'
+
+        const headers = new Headers(c.req.raw.headers)
+        headers.delete('host')
+
+        const response = await fetch(url.toString(), {
+            method: c.req.method,
+            headers,
+            body: c.req.method !== 'GET' && c.req.method !== 'HEAD' ?
+                c.req.raw.body :
+                undefined,
+            duplex: 'half',
+        } as RequestInit)
+
+        return new Response(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+        })
+    })
+
+    return app
+}
+
+// Only start server when run directly
+const isMainModule = import.meta.url === `file://${process.argv[1]}`
+if (isMainModule) {
+    const dbPath = process.env.TAP_DATABASE_PATH || '/data/tap.db'
+    const db = new Database(dbPath, { readonly: true })
+    const adminPassword = process.env.TAP_ADMIN_PASSWORD || ''
+
+    const app = createApp({ db, adminPassword, asciiPath: '/app/ascii2.txt' })
+
+    serve({ fetch: app.fetch, port: 8080 })
+    console.log('Gateway listening on :8080')
+}

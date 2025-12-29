@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "start": "tsx src/index.ts",
-    "lint": "eslint \"./**/*.ts\""
+    "lint": "eslint \"./**/*.ts\"",
+    "test": "esbuild test/index.ts --bundle --platform=node --format=esm --packages=external | node --input-type=module"
   },
   "dependencies": {
     "@atproto/tap": "^0.0.2",
@@ -13,10 +14,12 @@
     "hono": "^4.0.0"
   },
   "devDependencies": {
+    "@substrate-system/tapzero": "^0.10.16",
     "@types/better-sqlite3": "^7.6.8",
     "@types/node": "^25.0.3",
     "@typescript-eslint/eslint-plugin": "^8.18.2",
     "@typescript-eslint/parser": "^8.19.1",
+    "esbuild": "^0.27.2",
     "eslint": "^8.57.1",
     "tsx": "^4.0.0",
     "typescript": "^5.9.3"
