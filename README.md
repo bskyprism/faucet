@@ -3,6 +3,9 @@
 A template for a [Tap server](https://docs.bsky.app/blog/introducing-tap)
 on [fly.io](https://fly.io/).
 
+This adds an endpoint, `GET /repos/:cursor?` that will return a list of all
+repos that the tap server is tracking.
+
 ## How To
 
 1. Use the template button in the Github UI
