@@ -11,7 +11,7 @@
     "test": "esbuild test/index.ts --bundle --platform=node --format=esm --packages=external | node --input-type=module"
   },
   "dependencies": {
-    "@atproto/tap": "^0.0.2",
+    "@atproto/tap": "^0.1.2",
     "@hono/node-server": "^1.8.0",
     "better-sqlite3": "^11.10.0",
     "hono": "^4.0.0"
