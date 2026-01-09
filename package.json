@@ -12,7 +12,7 @@
   },
   "dependencies": {
     "@atproto/tap": "^0.0.2",
-    "@hono/node-server": "^1.8.0",
+    "@hono/node-server": "^1.19.8",
     "better-sqlite3": "^11.10.0",
     "hono": "^4.0.0"
   },
