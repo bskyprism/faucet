@@ -20,7 +20,7 @@ The `TAP_ADMIN_PASSWORD` should be
 [sent with any requests](https://github.com/bluesky-social/indigo/tree/main/cmd/tap#authentication).
 
 > [!IMPORTANT]  
-> When using webhook mode, Tap sends the same Basic auth credentials to
+> When using webhook mode, Tap sends the **same** Basic auth credentials to
 > your webhook endpoint.
 
 The `@atproto/tap` package exposes a function to parse the header:
